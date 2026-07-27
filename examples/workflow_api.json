@@ -1,0 +1,58 @@
+{
+  "1": {
+    "inputs": {
+      "image": "example.png",
+      "upload": "image"
+    },
+    "class_type": "LoadImage",
+    "_meta": {
+      "title": "加载图像"
+    }
+  },
+  "2": {
+    "inputs": {
+      "image": [
+        "1",
+        0
+      ],
+      "bead_width": 48,
+      "max_colors": 24,
+      "resize_method": "面积平均（推荐）",
+      "dither": "关闭（推荐）",
+      "cell_size": 24,
+      "show_symbols": true,
+      "show_coordinates": true,
+      "show_legend": true,
+      "title": "拼豆图纸"
+    },
+    "class_type": "PindouMosaicPattern",
+    "_meta": {
+      "title": "拼豆马赛克图纸（带色号）"
+    }
+  },
+  "3": {
+    "inputs": {
+      "images": [
+        "2",
+        0
+      ]
+    },
+    "class_type": "PreviewImage",
+    "_meta": {
+      "title": "预览马赛克"
+    }
+  },
+  "4": {
+    "inputs": {
+      "images": [
+        "2",
+        1
+      ]
+    },
+    "class_type": "PreviewImage",
+    "_meta": {
+      "title": "预览带色号图纸"
+    }
+  }
+}
+
