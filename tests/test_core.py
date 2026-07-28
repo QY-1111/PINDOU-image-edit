@@ -1,3 +1,4 @@
+import hashlib
 import sys
 import unittest
 from pathlib import Path
@@ -11,6 +12,7 @@ sys.path.insert(0, str(ROOT))
 from palette import PINDOU_PALETTE
 from pindou_node import (
     PALETTE_CODES,
+    PALETTE_RGB,
     image_to_bead_grid,
     render_pattern_sheet,
     rgb_to_lab,
@@ -20,8 +22,24 @@ from pindou_node import (
 class PindouCoreTests(unittest.TestCase):
     def test_reference_palette_is_complete(self):
         self.assertEqual(len(PINDOU_PALETTE), 221)
-        self.assertEqual(PINDOU_PALETTE["A1"], "#FAF5CC")
-        self.assertEqual(PINDOU_PALETTE["M15"], "#767F7C")
+        self.assertEqual(PINDOU_PALETTE["A1"], "#FAF4C8")
+        self.assertEqual(PINDOU_PALETTE["B22"], "#0B3C43")
+        self.assertEqual(PINDOU_PALETTE["C5"], "#01ACEB")
+        self.assertEqual(PINDOU_PALETTE["D13"], "#B90095")
+        self.assertEqual(PINDOU_PALETTE["E3"], "#FFB7E7")
+        self.assertEqual(PINDOU_PALETTE["F11"], "#5A2121")
+        self.assertEqual(PINDOU_PALETTE["G8"], "#753832")
+        self.assertEqual(PINDOU_PALETTE["H7"], "#000000")
+        self.assertEqual(PINDOU_PALETTE["M15"], "#757D78")
+
+    def test_standard_palette_fingerprint(self):
+        canonical = "\n".join(
+            f"{code}={hex_value}" for code, hex_value in PINDOU_PALETTE.items()
+        )
+        self.assertEqual(
+            hashlib.sha256(canonical.encode("utf-8")).hexdigest(),
+            "7224f95876edcd8ec47bb994d5ee7d0ac3ceb0adcd02f3896ac6316c7b8d290a",
+        )
 
     def test_lab_reference_points(self):
         black, white = rgb_to_lab(
@@ -44,6 +62,20 @@ class PindouCoreTests(unittest.TestCase):
         self.assertEqual(len(np.unique(indices)), 1)
         code = str(PALETTE_CODES[int(indices[0, 0])])
         self.assertIn(code[0], ("A", "F"))
+
+    def test_quantized_pixels_only_use_standard_palette(self):
+        pixels = np.arange(18 * 24 * 3, dtype=np.uint16).reshape(18, 24, 3)
+        source = Image.fromarray((pixels % 256).astype(np.uint8), "RGB")
+        grid_rgb, _ = image_to_bead_grid(
+            source,
+            bead_width=24,
+            max_colors=16,
+            resize_method="面积平均（推荐）",
+            dither="Floyd-Steinberg",
+        )
+        standard_colors = {tuple(color) for color in PALETTE_RGB.tolist()}
+        output_colors = {tuple(color) for color in grid_rgb.reshape(-1, 3).tolist()}
+        self.assertTrue(output_colors.issubset(standard_colors))
 
     def test_long_board_is_safely_capped(self):
         source = Image.new("RGB", (10, 1000), "white")
