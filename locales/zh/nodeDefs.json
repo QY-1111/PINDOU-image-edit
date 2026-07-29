@@ -1,0 +1,84 @@
+{
+  "PindouMosaicPattern": {
+    "display_name": "拼豆马赛克图纸（带色号）",
+    "description": "把输入图像转换为匹配 A-H/M 实体色卡的拼豆图纸。",
+    "inputs": {
+      "image": {
+        "name": "输入图像",
+        "tooltip": "需要转换成拼豆图纸的原始图像。"
+      },
+      "bead_width": {
+        "name": "横向拼豆数",
+        "tooltip": "横向拼豆数量；纵向数量按照原图比例自动计算。"
+      },
+      "max_colors": {
+        "name": "最大颜色数",
+        "tooltip": "图纸最多使用的实体拼豆色号数量。"
+      },
+      "resize_method": {
+        "name": "缩放方式",
+        "tooltip": "原图缩小到拼豆网格时使用的采样方式。",
+        "options": {
+          "面积平均（推荐）": "面积平均（推荐）",
+          "高质量 Lanczos": "高质量锐化缩放（Lanczos）",
+          "最近邻": "最近邻"
+        }
+      },
+      "dither": {
+        "name": "抖动方式",
+        "tooltip": "是否使用误差扩散模拟有限颜色下的渐变。",
+        "options": {
+          "关闭（推荐）": "关闭（推荐）",
+          "Floyd-Steinberg": "误差扩散（Floyd-Steinberg）"
+        }
+      },
+      "cell_size": {
+        "name": "单格尺寸",
+        "tooltip": "输出图纸中每个拼豆格子的像素尺寸。"
+      },
+      "show_symbols": {
+        "name": "显示色号",
+        "tooltip": "是否在每个格子中显示 A1、H7 等色号。"
+      },
+      "show_coordinates": {
+        "name": "显示坐标",
+        "tooltip": "是否每 5 格显示坐标并加粗计数线。"
+      },
+      "show_legend": {
+        "name": "显示图例",
+        "tooltip": "是否在图纸底部显示色号、色块和用量。"
+      },
+      "title": {
+        "name": "图纸标题",
+        "tooltip": "显示在图纸顶部的标题。"
+      },
+      "enhance_outer_edge": {
+        "name": "外边缘强化",
+        "tooltip": "连接遮罩后，将遮罩内侧的一格外轮廓强化为黑色。"
+      },
+      "grid_line_opacity": {
+        "name": "网格线不透明度",
+        "tooltip": "控制拼豆格子分割线的深浅，数值越小越淡。"
+      },
+      "symbol_font_scale": {
+        "name": "色号字号",
+        "tooltip": "控制格内 A1、H7 等色号文字的大小。"
+      },
+      "mask": {
+        "name": "外边缘遮罩（可选）",
+        "tooltip": "用于指定外边缘强化范围；不连接时保持原有处理。"
+      }
+    },
+    "outputs": {
+      "0": {
+        "name": "马赛克预览"
+      },
+      "1": {
+        "name": "带色号图纸"
+      },
+      "2": {
+        "name": "色号统计"
+      }
+    }
+  }
+}

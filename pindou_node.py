@@ -510,14 +510,26 @@ class PindouMosaicPattern:
                     "INT",
                     {"default": 24, "min": 8, "max": 64, "step": 1},
                 ),
-                "show_symbols": ("BOOLEAN", {"default": True}),
-                "show_coordinates": ("BOOLEAN", {"default": True}),
-                "show_legend": ("BOOLEAN", {"default": True}),
+                "show_symbols": (
+                    "BOOLEAN",
+                    {"default": True, "label_on": "开启", "label_off": "关闭"},
+                ),
+                "show_coordinates": (
+                    "BOOLEAN",
+                    {"default": True, "label_on": "开启", "label_off": "关闭"},
+                ),
+                "show_legend": (
+                    "BOOLEAN",
+                    {"default": True, "label_on": "开启", "label_off": "关闭"},
+                ),
                 "title": (
                     "STRING",
                     {"default": "拼豆图纸", "multiline": False},
                 ),
-                "enhance_outer_edge": ("BOOLEAN", {"default": False}),
+                "enhance_outer_edge": (
+                    "BOOLEAN",
+                    {"default": False, "label_on": "开启", "label_off": "关闭"},
+                ),
                 "grid_line_opacity": (
                     "FLOAT",
                     {

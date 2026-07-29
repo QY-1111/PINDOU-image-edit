@@ -1,4 +1,5 @@
 import hashlib
+import json
 import sys
 import unittest
 from pathlib import Path
@@ -22,6 +23,27 @@ from pindou_node import (
 
 
 class PindouCoreTests(unittest.TestCase):
+    def test_simplified_chinese_labels_cover_all_node_inputs(self):
+        locale_path = ROOT / "locales" / "zh" / "nodeDefs.json"
+        locale = json.loads(locale_path.read_text(encoding="utf-8"))
+        translated_inputs = locale["PindouMosaicPattern"]["inputs"]
+        inputs = PindouMosaicPattern.INPUT_TYPES()
+        expected_inputs = set(inputs["required"]) | set(inputs["optional"])
+
+        self.assertEqual(set(translated_inputs), expected_inputs)
+        self.assertTrue(
+            all(definition["name"] for definition in translated_inputs.values())
+        )
+        for boolean_name in (
+            "show_symbols",
+            "show_coordinates",
+            "show_legend",
+            "enhance_outer_edge",
+        ):
+            options = inputs["required"][boolean_name][1]
+            self.assertEqual(options["label_on"], "开启")
+            self.assertEqual(options["label_off"], "关闭")
+
     def test_node_exposes_optional_mask_and_new_controls(self):
         inputs = PindouMosaicPattern.INPUT_TYPES()
         self.assertIn("mask", inputs["optional"])
