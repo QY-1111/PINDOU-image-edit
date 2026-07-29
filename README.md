@@ -58,6 +58,7 @@ ComfyUI_windows_portable/ComfyUI/custom_nodes/PINDOU-image-edit
 | `title` | 图纸顶部标题。 |
 | `enhance_outer_edge` | 外边缘强化开关。连接可选 `mask` 后，会将 mask 内侧的一格轮廓强化为黑色；未连接 mask 时保持原有处理。 |
 | `grid_line_opacity` | 拼豆格子分割线的不透明度滑块，范围 0–1；默认 0.35，数值越小线条越淡。 |
+| `symbol_font_scale` | 格内 A1、H7 等色号文字的字号比例滑块，范围 0.2–0.8；默认 0.4。 |
 | `mask`（可选） | 用于指定外边缘强化范围的遮罩，不连接也可正常运行。 |
 
 当画板非常大时，节点会自动降低实际单格显示尺寸，把最长输出边控制在合理范围内，避免生成超大图片导致内存不足。

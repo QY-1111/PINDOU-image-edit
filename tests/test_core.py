@@ -30,6 +30,10 @@ class PindouCoreTests(unittest.TestCase):
             inputs["required"]["grid_line_opacity"][1]["default"],
             0.35,
         )
+        self.assertEqual(
+            inputs["required"]["symbol_font_scale"][1]["default"],
+            0.40,
+        )
 
     def test_reference_palette_is_complete(self):
         self.assertEqual(len(PINDOU_PALETTE), 221)
@@ -213,6 +217,42 @@ class PindouCoreTests(unittest.TestCase):
             sheet_without_grid.getpixel(grid_position),
             sheet_with_grid.getpixel(grid_position),
         )
+
+    def test_symbol_font_scale_changes_symbol_rendering(self):
+        source = Image.new("RGB", (20, 20), (242, 55, 60))
+        grid_rgb, indices = image_to_bead_grid(
+            source,
+            bead_width=2,
+            max_colors=2,
+            resize_method="最近邻",
+            dither="关闭（推荐）",
+        )
+        small_symbols, _ = render_pattern_sheet(
+            grid_rgb,
+            indices,
+            cell_size=40,
+            show_symbols=True,
+            show_coordinates=False,
+            show_legend=False,
+            title="测试图纸",
+            grid_line_opacity=0.0,
+            symbol_font_scale=0.20,
+        )
+        large_symbols, _ = render_pattern_sheet(
+            grid_rgb,
+            indices,
+            cell_size=40,
+            show_symbols=True,
+            show_coordinates=False,
+            show_legend=False,
+            title="测试图纸",
+            grid_line_opacity=0.0,
+            symbol_font_scale=0.80,
+        )
+
+        small_array = np.asarray(small_symbols)
+        large_array = np.asarray(large_symbols)
+        self.assertFalse(np.array_equal(small_array, large_array))
 
 
 if __name__ == "__main__":

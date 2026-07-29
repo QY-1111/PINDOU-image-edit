@@ -288,6 +288,7 @@ def render_pattern_sheet(
     show_legend: bool,
     title: str,
     grid_line_opacity: float = 0.35,
+    symbol_font_scale: float = 0.40,
 ) -> tuple[Image.Image, Counter]:
     """Render a printable board with cell symbols, coordinates, and color counts."""
     rows, columns = grid_indices.shape
@@ -313,7 +314,9 @@ def render_pattern_sheet(
     title_font = _get_font(24, bold=True)
     meta_font = _get_font(13)
     coord_font = _get_font(max(9, min(13, cell // 2)), bold=True)
-    symbol_font = _get_font(max(8, int(cell * 0.40)), bold=True)
+    symbol_scale = float(np.clip(symbol_font_scale, 0.20, 0.80))
+    symbol_font_size = max(8, int(cell * symbol_scale))
+    symbol_fonts: dict[str, ImageFont.ImageFont] = {}
     legend_font = _get_font(14, bold=True)
     legend_count_font = _get_font(13)
 
@@ -337,6 +340,25 @@ def render_pattern_sheet(
             )
             if show_symbols:
                 code = str(PALETTE_CODES[grid_indices[y, x]])
+                symbol_font = symbol_fonts.get(code)
+                if symbol_font is None:
+                    symbol_font = _get_font(symbol_font_size, bold=True)
+                    left_bound, top_bound, right_bound, bottom_bound = (
+                        symbol_font.getbbox(code)
+                    )
+                    text_width = max(1, right_bound - left_bound)
+                    text_height = max(1, bottom_bound - top_bound)
+                    fit_scale = min(
+                        1.0,
+                        (cell - 2) / text_width,
+                        (cell - 2) / text_height,
+                    )
+                    if fit_scale < 1.0:
+                        symbol_font = _get_font(
+                            max(8, int(symbol_font_size * fit_scale)),
+                            bold=True,
+                        )
+                    symbol_fonts[code] = symbol_font
                 draw.text(
                     (left + cell / 2, top + cell / 2),
                     code,
@@ -506,6 +528,16 @@ class PindouMosaicPattern:
                         "display": "slider",
                     },
                 ),
+                "symbol_font_scale": (
+                    "FLOAT",
+                    {
+                        "default": 0.40,
+                        "min": 0.20,
+                        "max": 0.80,
+                        "step": 0.05,
+                        "display": "slider",
+                    },
+                ),
             },
             "optional": {
                 "mask": ("MASK",),
@@ -526,6 +558,7 @@ class PindouMosaicPattern:
         title,
         enhance_outer_edge=False,
         grid_line_opacity=0.35,
+        symbol_font_scale=0.40,
         mask=None,
     ):
         import torch
@@ -566,6 +599,7 @@ class PindouMosaicPattern:
                 show_legend=show_legend,
                 title=title,
                 grid_line_opacity=grid_line_opacity,
+                symbol_font_scale=symbol_font_scale,
             )
             previews.append(preview)
             sheets.append(sheet)
