@@ -11,8 +11,10 @@ sys.path.insert(0, str(ROOT))
 
 from palette import PINDOU_PALETTE
 from pindou_node import (
+    BLACK_PALETTE_INDEX,
     PALETTE_CODES,
     PALETTE_RGB,
+    PindouMosaicPattern,
     image_to_bead_grid,
     render_pattern_sheet,
     rgb_to_lab,
@@ -20,6 +22,15 @@ from pindou_node import (
 
 
 class PindouCoreTests(unittest.TestCase):
+    def test_node_exposes_optional_mask_and_new_controls(self):
+        inputs = PindouMosaicPattern.INPUT_TYPES()
+        self.assertIn("mask", inputs["optional"])
+        self.assertFalse(inputs["required"]["enhance_outer_edge"][1]["default"])
+        self.assertEqual(
+            inputs["required"]["grid_line_opacity"][1]["default"],
+            0.35,
+        )
+
     def test_reference_palette_is_complete(self):
         self.assertEqual(len(PINDOU_PALETTE), 221)
         self.assertEqual(PINDOU_PALETTE["A1"], "#FAF4C8")
@@ -109,6 +120,99 @@ class PindouCoreTests(unittest.TestCase):
         self.assertGreaterEqual(sheet.width, 640)
         self.assertGreater(sheet.height, indices.shape[0] * 20)
         self.assertEqual(sum(counts.values()), int(indices.size))
+
+    def test_optional_mask_enhances_only_its_inner_outer_edge(self):
+        source = Image.new("RGB", (80, 80), (242, 55, 60))
+        mask = Image.new("L", (80, 80), 0)
+        mask_pixels = np.asarray(mask).copy()
+        mask_pixels[20:60, 20:60] = 255
+        mask = Image.fromarray(mask_pixels, "L")
+
+        _, baseline_indices = image_to_bead_grid(
+            source,
+            bead_width=8,
+            max_colors=4,
+            resize_method="最近邻",
+            dither="关闭（推荐）",
+        )
+        _, enhanced_indices = image_to_bead_grid(
+            source,
+            bead_width=8,
+            max_colors=4,
+            resize_method="最近邻",
+            dither="关闭（推荐）",
+            edge_mask=mask,
+            enhance_outer_edge=True,
+        )
+
+        self.assertFalse(np.any(baseline_indices == BLACK_PALETTE_INDEX))
+        expected_edge = np.zeros((8, 8), dtype=bool)
+        expected_edge[2:6, 2:6] = True
+        expected_edge[3:5, 3:5] = False
+        self.assertTrue(
+            np.array_equal(
+                enhanced_indices == BLACK_PALETTE_INDEX,
+                expected_edge,
+            )
+        )
+
+    def test_edge_switch_without_mask_preserves_previous_result(self):
+        source = Image.new("RGB", (40, 20), (30, 100, 180))
+        baseline = image_to_bead_grid(
+            source,
+            bead_width=12,
+            max_colors=8,
+            resize_method="面积平均（推荐）",
+            dither="关闭（推荐）",
+        )
+        without_mask = image_to_bead_grid(
+            source,
+            bead_width=12,
+            max_colors=8,
+            resize_method="面积平均（推荐）",
+            dither="关闭（推荐）",
+            enhance_outer_edge=True,
+        )
+        np.testing.assert_array_equal(baseline[0], without_mask[0])
+        np.testing.assert_array_equal(baseline[1], without_mask[1])
+
+    def test_sheet_background_is_white_and_grid_opacity_is_adjustable(self):
+        source = Image.new("RGB", (20, 20), (242, 55, 60))
+        grid_rgb, indices = image_to_bead_grid(
+            source,
+            bead_width=2,
+            max_colors=2,
+            resize_method="最近邻",
+            dither="关闭（推荐）",
+        )
+        sheet_without_grid, _ = render_pattern_sheet(
+            grid_rgb,
+            indices,
+            cell_size=20,
+            show_symbols=False,
+            show_coordinates=False,
+            show_legend=False,
+            title="测试图纸",
+            grid_line_opacity=0.0,
+        )
+        sheet_with_grid, _ = render_pattern_sheet(
+            grid_rgb,
+            indices,
+            cell_size=20,
+            show_symbols=False,
+            show_coordinates=False,
+            show_legend=False,
+            title="测试图纸",
+            grid_line_opacity=1.0,
+        )
+
+        self.assertEqual(sheet_without_grid.getpixel((639, 0)), (255, 255, 255))
+        self.assertEqual(sheet_with_grid.getpixel((639, 0)), (255, 255, 255))
+        grid_position = (16, 66)
+        self.assertNotEqual(
+            sheet_without_grid.getpixel(grid_position),
+            sheet_with_grid.getpixel(grid_position),
+        )
 
 
 if __name__ == "__main__":

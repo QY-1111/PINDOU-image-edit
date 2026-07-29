@@ -64,6 +64,7 @@ def rgb_to_lab(rgb: np.ndarray) -> np.ndarray:
 
 
 PALETTE_LAB = rgb_to_lab(PALETTE_RGB)
+BLACK_PALETTE_INDEX = int(np.where(PALETTE_CODES == "H7")[0][0])
 
 
 def _nearest_indices(
@@ -184,6 +185,8 @@ def image_to_bead_grid(
     resize_method: str,
     dither: str,
     max_board_side: int = 300,
+    edge_mask: Image.Image | None = None,
+    enhance_outer_edge: bool = False,
 ) -> tuple[np.ndarray, np.ndarray]:
     """Resize, select palette colors, and quantize a PIL image."""
     image = image.convert("RGB")
@@ -201,12 +204,34 @@ def image_to_bead_grid(
     selected = _choose_palette(grid_rgb, max_colors)
 
     if dither == "Floyd-Steinberg":
-        return _floyd_steinberg(grid_rgb, selected)
+        output_rgb, global_indices = _floyd_steinberg(grid_rgb, selected)
+    else:
+        grid_lab = rgb_to_lab(grid_rgb)
+        local_indices = _nearest_indices(grid_lab, PALETTE_LAB[selected])
+        global_indices = selected[local_indices]
+        output_rgb = PALETTE_RGB[global_indices]
 
-    grid_lab = rgb_to_lab(grid_rgb)
-    local_indices = _nearest_indices(grid_lab, PALETTE_LAB[selected])
-    global_indices = selected[local_indices]
-    return PALETTE_RGB[global_indices], global_indices
+    if enhance_outer_edge and edge_mask is not None:
+        mask = np.asarray(
+            edge_mask.convert("L").resize(
+                (grid_width, grid_height), Image.Resampling.BOX
+            ),
+            dtype=np.uint8,
+        )
+        foreground = mask >= 128
+        padded = np.pad(foreground, 1, constant_values=False)
+        eroded = np.ones_like(foreground)
+        for y_offset in range(3):
+            for x_offset in range(3):
+                eroded &= padded[
+                    y_offset : y_offset + grid_height,
+                    x_offset : x_offset + grid_width,
+                ]
+        outer_edge = foreground & ~eroded
+        global_indices[outer_edge] = BLACK_PALETTE_INDEX
+        output_rgb = PALETTE_RGB[global_indices]
+
+    return output_rgb, global_indices
 
 
 def _font_candidates(bold: bool) -> list[str]:
@@ -262,6 +287,7 @@ def render_pattern_sheet(
     show_coordinates: bool,
     show_legend: bool,
     title: str,
+    grid_line_opacity: float = 0.35,
 ) -> tuple[Image.Image, Counter]:
     """Render a printable board with cell symbols, coordinates, and color counts."""
     rows, columns = grid_indices.shape
@@ -282,7 +308,7 @@ def render_pattern_sheet(
         legend_height = 52 + legend_rows * 34 + 22
     canvas_height = y0 + grid_height_px + 18 + legend_height
 
-    paper = Image.new("RGB", (canvas_width, canvas_height), (250, 248, 240))
+    paper = Image.new("RGB", (canvas_width, canvas_height), (255, 255, 255))
     draw = ImageDraw.Draw(paper)
     title_font = _get_font(24, bold=True)
     meta_font = _get_font(13)
@@ -320,23 +346,39 @@ def render_pattern_sheet(
                     stroke_width=0,
                 )
 
+    # Blend grid lines over each cell so the slider can soften them without
+    # making pale bead colors look muddy.
+    line_alpha = float(np.clip(grid_line_opacity, 0.0, 1.0))
+    fine_line = (155, 155, 155)
+    strong_line = (70, 70, 70)
+    line_overlay = Image.new("RGBA", paper.size, (0, 0, 0, 0))
+    line_draw = ImageDraw.Draw(line_overlay)
+
     # Fine lines plus a stronger line every five beads make counting easier.
     for x in range(columns + 1):
         position = x0 + x * cell
         strong = x % 5 == 0
-        draw.line(
+        line_draw.line(
             (position, y0, position, y0 + grid_height_px),
-            fill=(70, 70, 70) if strong else (155, 155, 155),
+            fill=(
+                *(strong_line if strong else fine_line),
+                round(255 * line_alpha),
+            ),
             width=2 if strong else 1,
         )
     for y in range(rows + 1):
         position = y0 + y * cell
         strong = y % 5 == 0
-        draw.line(
+        line_draw.line(
             (x0, position, x0 + grid_width_px, position),
-            fill=(70, 70, 70) if strong else (155, 155, 155),
+            fill=(
+                *(strong_line if strong else fine_line),
+                round(255 * line_alpha),
+            ),
             width=2 if strong else 1,
         )
+    paper.paste(line_overlay, (0, 0), line_overlay)
+    draw = ImageDraw.Draw(paper)
 
     if show_coordinates:
         for x in range(4, columns, 5):
@@ -453,6 +495,20 @@ class PindouMosaicPattern:
                     "STRING",
                     {"default": "拼豆图纸", "multiline": False},
                 ),
+                "enhance_outer_edge": ("BOOLEAN", {"default": False}),
+                "grid_line_opacity": (
+                    "FLOAT",
+                    {
+                        "default": 0.35,
+                        "min": 0.0,
+                        "max": 1.0,
+                        "step": 0.05,
+                        "display": "slider",
+                    },
+                ),
+            },
+            "optional": {
+                "mask": ("MASK",),
             }
         }
 
@@ -468,6 +524,9 @@ class PindouMosaicPattern:
         show_coordinates,
         show_legend,
         title,
+        enhance_outer_edge=False,
+        grid_line_opacity=0.35,
+        mask=None,
     ):
         import torch
 
@@ -479,15 +538,23 @@ class PindouMosaicPattern:
         statistics = []
 
         source_batch = image.detach().cpu().numpy()
+        mask_batch = None if mask is None else mask.detach().cpu().numpy()
         for batch_index, source in enumerate(source_batch):
             source_rgb = np.clip(source[..., :3] * 255.0, 0, 255).astype(np.uint8)
             pil_image = Image.fromarray(source_rgb, "RGB")
+            pil_mask = None
+            if mask_batch is not None:
+                mask_source = mask_batch[min(batch_index, len(mask_batch) - 1)]
+                mask_uint8 = np.clip(mask_source * 255.0, 0, 255).astype(np.uint8)
+                pil_mask = Image.fromarray(mask_uint8, "L")
             grid_rgb, grid_indices = image_to_bead_grid(
                 pil_image,
                 bead_width=bead_width,
                 max_colors=max_colors,
                 resize_method=resize_method,
                 dither=dither,
+                edge_mask=pil_mask,
+                enhance_outer_edge=enhance_outer_edge,
             )
             preview = render_mosaic_preview(grid_rgb, cell_size)
             sheet, counts = render_pattern_sheet(
@@ -498,6 +565,7 @@ class PindouMosaicPattern:
                 show_coordinates=show_coordinates,
                 show_legend=show_legend,
                 title=title,
+                grid_line_opacity=grid_line_opacity,
             )
             previews.append(preview)
             sheets.append(sheet)
