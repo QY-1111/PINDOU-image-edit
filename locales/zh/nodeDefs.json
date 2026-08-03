@@ -1,7 +1,7 @@
 {
   "PindouMosaicPattern": {
     "display_name": "拼豆马赛克图纸（带色号）",
-    "description": "把输入图像转换为匹配 A-H/M 实体色卡的拼豆图纸。",
+    "description": "从可选 MARD 色板中取色，把输入图像转换为带实体色号的拼豆图纸。",
     "inputs": {
       "image": {
         "name": "输入图像",
@@ -14,6 +14,16 @@
       "max_colors": {
         "name": "最大颜色数",
         "tooltip": "图纸最多使用的实体拼豆色号数量。"
+      },
+      "palette": {
+        "name": "色板",
+        "tooltip": "限定图纸可使用的实体颜色；选择 96 色时只会从 AI96 色板中取色。",
+        "options": {
+          "MARD 221色（原色板）": "MARD 221色（原色板）",
+          "MARD AI96（96色）": "MARD AI96（96色）",
+          "MARD AI72（72色）": "MARD AI72（72色）",
+          "MARD AI32（32色）": "MARD AI32（32色）"
+        }
       },
       "resize_method": {
         "name": "缩放方式",

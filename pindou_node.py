@@ -12,9 +12,9 @@ import numpy as np
 from PIL import Image, ImageDraw, ImageFont
 
 try:
-    from .palette import PINDOU_PALETTE
+    from .palette import DEFAULT_PALETTE_NAME, PINDOU_PALETTE, PINDOU_PALETTES
 except ImportError:  # Allows the core renderer to be tested as a standalone module.
-    from palette import PINDOU_PALETTE
+    from palette import DEFAULT_PALETTE_NAME, PINDOU_PALETTE, PINDOU_PALETTES
 
 
 PALETTE_CODES = np.array(list(PINDOU_PALETTE.keys()))
@@ -65,6 +65,27 @@ def rgb_to_lab(rgb: np.ndarray) -> np.ndarray:
 
 PALETTE_LAB = rgb_to_lab(PALETTE_RGB)
 BLACK_PALETTE_INDEX = int(np.where(PALETTE_CODES == "H7")[0][0])
+PALETTE_INDEX_BY_CODE = {
+    str(code): index for index, code in enumerate(PALETTE_CODES)
+}
+PALETTE_INDICES = {
+    name: np.asarray(
+        [PALETTE_INDEX_BY_CODE[code] for code in palette],
+        dtype=np.int32,
+    )
+    for name, palette in PINDOU_PALETTES.items()
+}
+
+
+def get_palette_indices(palette_name: str = DEFAULT_PALETTE_NAME) -> np.ndarray:
+    """Return global 221-palette indices allowed by a named palette."""
+    try:
+        return PALETTE_INDICES[palette_name]
+    except KeyError as error:
+        available = "、".join(PALETTE_INDICES)
+        raise ValueError(
+            f"未知色板：{palette_name!r}。可选色板：{available}"
+        ) from error
 
 
 def _nearest_indices(
@@ -82,9 +103,18 @@ def _nearest_indices(
     return result.reshape(colors_lab.shape[:-1])
 
 
-def _choose_palette(grid_rgb: np.ndarray, max_colors: int) -> np.ndarray:
+def _choose_palette(
+    grid_rgb: np.ndarray,
+    max_colors: int,
+    candidate_palette: np.ndarray | None = None,
+) -> np.ndarray:
     """Choose a compact set of real bead colors using deterministic Lab k-means."""
-    max_colors = int(np.clip(max_colors, 1, len(PALETTE_CODES)))
+    if candidate_palette is None:
+        candidate_palette = PALETTE_INDICES[DEFAULT_PALETTE_NAME]
+    candidate_palette = np.asarray(candidate_palette, dtype=np.int32)
+    if candidate_palette.size == 0:
+        raise ValueError("所选色板不包含任何颜色。")
+    max_colors = int(np.clip(max_colors, 1, len(candidate_palette)))
     pixels = rgb_to_lab(grid_rgb).reshape(-1, 3)
 
     # Palette selection does not need every pixel on very large boards.
@@ -134,9 +164,12 @@ def _choose_palette(grid_rgb: np.ndarray, max_colors: int) -> np.ndarray:
     populations = np.bincount(labels, minlength=len(centers_array))
     selected: list[int] = []
     for center_index in np.argsort(-populations):
-        distances = np.sum((PALETTE_LAB - centers_array[center_index]) ** 2, axis=1)
-        for palette_index in np.argsort(distances):
-            candidate = int(palette_index)
+        distances = np.sum(
+            (PALETTE_LAB[candidate_palette] - centers_array[center_index]) ** 2,
+            axis=1,
+        )
+        for local_index in np.argsort(distances):
+            candidate = int(candidate_palette[local_index])
             if candidate not in selected:
                 selected.append(candidate)
                 break
@@ -187,6 +220,7 @@ def image_to_bead_grid(
     max_board_side: int = 300,
     edge_mask: Image.Image | None = None,
     enhance_outer_edge: bool = False,
+    palette_name: str = DEFAULT_PALETTE_NAME,
 ) -> tuple[np.ndarray, np.ndarray]:
     """Resize, select palette colors, and quantize a PIL image."""
     image = image.convert("RGB")
@@ -201,7 +235,8 @@ def image_to_bead_grid(
     resample = RESAMPLE_METHODS.get(resize_method, Image.Resampling.BOX)
     resized = image.resize((grid_width, grid_height), resample)
     grid_rgb = np.asarray(resized, dtype=np.uint8)
-    selected = _choose_palette(grid_rgb, max_colors)
+    allowed_palette = get_palette_indices(palette_name)
+    selected = _choose_palette(grid_rgb, max_colors, allowed_palette)
 
     if dither == "Floyd-Steinberg":
         output_rgb, global_indices = _floyd_steinberg(grid_rgb, selected)
@@ -489,7 +524,7 @@ class PindouMosaicPattern:
     FUNCTION = "generate"
     RETURN_TYPES = ("IMAGE", "IMAGE", "STRING")
     RETURN_NAMES = ("马赛克预览", "带色号图纸", "色号统计")
-    DESCRIPTION = "把输入图像转换为匹配 A-H/M 实体色卡的拼豆图纸。"
+    DESCRIPTION = "从可选 MARD 色板中取色，把输入图像转换为带实体色号的拼豆图纸。"
 
     @classmethod
     def INPUT_TYPES(cls):
@@ -550,6 +585,9 @@ class PindouMosaicPattern:
                         "display": "slider",
                     },
                 ),
+                # Keep new widgets at the end so older serialized ComfyUI
+                # workflows retain the positional values of existing widgets.
+                "palette": (list(PINDOU_PALETTES.keys()),),
             },
             "optional": {
                 "mask": ("MASK",),
@@ -571,6 +609,7 @@ class PindouMosaicPattern:
         enhance_outer_edge=False,
         grid_line_opacity=0.35,
         symbol_font_scale=0.40,
+        palette=DEFAULT_PALETTE_NAME,
         mask=None,
     ):
         import torch
@@ -600,6 +639,7 @@ class PindouMosaicPattern:
                 dither=dither,
                 edge_mask=pil_mask,
                 enhance_outer_edge=enhance_outer_edge,
+                palette_name=palette,
             )
             preview = render_mosaic_preview(grid_rgb, cell_size)
             sheet, counts = render_pattern_sheet(
@@ -621,6 +661,7 @@ class PindouMosaicPattern:
                     "image": batch_index + 1,
                     "board": f"{columns}x{rows}",
                     "total_beads": int(columns * rows),
+                    "palette": palette,
                     "colors": [
                         {
                             "code": str(PALETTE_CODES[index]),

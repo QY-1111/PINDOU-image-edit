@@ -17,6 +17,7 @@
       ],
       "bead_width": 48,
       "max_colors": 24,
+      "palette": "MARD 221色（原色板）",
       "resize_method": "面积平均（推荐）",
       "dither": "关闭（推荐）",
       "cell_size": 24,
@@ -55,4 +56,3 @@
     }
   }
 }
-

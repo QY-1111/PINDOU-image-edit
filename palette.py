@@ -1,4 +1,4 @@
-"""Standard MARD 221-color RGB palette (A-H/M series)."""
+"""MARD RGB palettes used by the PINDOU node."""
 
 PINDOU_PALETTE = {
     "A1": "#FAF4C8",
@@ -222,4 +222,58 @@ PINDOU_PALETTE = {
     "M13": "#D19066",
     "M14": "#C77362",
     "M15": "#757D78",
+}
+
+
+# Keep the original palette name first: ComfyUI uses the first option as the
+# widget default, so existing workflows retain the original 221-color result.
+DEFAULT_PALETTE_NAME = "MARD 221色（原色板）"
+AI96_PALETTE_NAME = "MARD AI96（96色）"
+AI72_PALETTE_NAME = "MARD AI72（72色）"
+AI32_PALETTE_NAME = "MARD AI32（32色）"
+
+
+# The optimized palettes are subsets of the original 221 physical bead colors.
+# Keeping their color codes as subsets also keeps pattern symbols and inventory
+# statistics compatible across all four palette choices.
+# The supplied AI96 table contains 95 rows. B22 is the missing nested color:
+# it is present in both AI72 and AI32, and restores the advertised 96 colors.
+AI96_CODES = (
+    "A1", "A2", "A4", "A5", "A6", "A7", "A9", "A10", "A11", "A12",
+    "A13", "A15", "A18", "A19", "A21", "A23", "A25", "A26", "B3", "B5",
+    "B6", "B7", "B8", "B9", "B10", "B12", "B16", "B19", "B22", "B25",
+    "B27",
+    "C2", "C3", "C4", "C5", "C6", "C7", "C8", "C10", "C13", "C17",
+    "C21", "C24", "D1", "D2", "D6", "D8", "D9", "D12", "D17", "D18",
+    "D24", "E1", "E2", "E4", "E6", "E8", "E12", "E15", "E17", "E24",
+    "F1", "F2", "F5", "F6", "F9", "F10", "F11", "F17", "F18", "F20",
+    "F23", "G1", "G3", "G4", "G7", "G8", "G9", "G11", "G14", "G16",
+    "G17", "M4", "M13", "H1", "H3", "H4", "H5", "H6", "H7", "H8",
+    "H9", "H11", "H13", "H15", "H20",
+)
+
+AI72_CODES = (
+    "A1", "A2", "A4", "A5", "A6", "A7", "A9", "A10", "A11", "A12",
+    "A13", "A18", "A19", "A23", "A26", "B3", "B5", "B6", "B7", "B8",
+    "B9", "B10", "B12", "B19", "B22", "C2", "C3", "C4", "C5", "C7",
+    "C8", "C13", "C17", "C24", "D1", "D2", "D6", "D8", "D12", "D18",
+    "E1", "E2", "E4", "E6", "E8", "E12", "F1", "F2", "F5", "F6",
+    "F10", "F11", "F17", "F18", "G1", "G3", "G4", "G7", "G8", "G11",
+    "G14", "G17", "H1", "H3", "H4", "H5", "H6", "H7", "H9", "H11",
+    "H15", "H20",
+)
+
+AI32_CODES = (
+    "A2", "H9", "H4", "H5", "H7", "A11", "A12", "A23", "G7", "F17",
+    "F10", "G14", "F11", "A4", "A26", "A10", "F2", "F5", "F9", "E1",
+    "E4", "E12", "D8", "D18", "C3", "C5", "C8", "B10", "B3", "B8",
+    "B22", "H1",
+)
+
+
+PINDOU_PALETTES = {
+    DEFAULT_PALETTE_NAME: PINDOU_PALETTE,
+    AI96_PALETTE_NAME: {code: PINDOU_PALETTE[code] for code in AI96_CODES},
+    AI72_PALETTE_NAME: {code: PINDOU_PALETTE[code] for code in AI72_CODES},
+    AI32_PALETTE_NAME: {code: PINDOU_PALETTE[code] for code in AI32_CODES},
 }

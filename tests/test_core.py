@@ -10,12 +10,20 @@ from PIL import Image
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
-from palette import PINDOU_PALETTE
+from palette import (
+    AI32_PALETTE_NAME,
+    AI72_PALETTE_NAME,
+    AI96_PALETTE_NAME,
+    DEFAULT_PALETTE_NAME,
+    PINDOU_PALETTE,
+    PINDOU_PALETTES,
+)
 from pindou_node import (
     BLACK_PALETTE_INDEX,
     PALETTE_CODES,
     PALETTE_RGB,
     PindouMosaicPattern,
+    get_palette_indices,
     image_to_bead_grid,
     render_pattern_sheet,
     rgb_to_lab,
@@ -56,6 +64,57 @@ class PindouCoreTests(unittest.TestCase):
             inputs["required"]["symbol_font_scale"][1]["default"],
             0.40,
         )
+        self.assertEqual(
+            inputs["required"]["palette"][0],
+            list(PINDOU_PALETTES),
+        )
+
+    def test_all_four_palette_definitions_have_expected_sizes(self):
+        self.assertEqual(
+            list(PINDOU_PALETTES),
+            [
+                DEFAULT_PALETTE_NAME,
+                AI96_PALETTE_NAME,
+                AI72_PALETTE_NAME,
+                AI32_PALETTE_NAME,
+            ],
+        )
+        self.assertEqual(
+            {name: len(palette) for name, palette in PINDOU_PALETTES.items()},
+            {
+                DEFAULT_PALETTE_NAME: 221,
+                AI96_PALETTE_NAME: 96,
+                AI72_PALETTE_NAME: 72,
+                AI32_PALETTE_NAME: 32,
+            },
+        )
+        for palette in PINDOU_PALETTES.values():
+            self.assertIn("H7", palette)
+            for code, hex_value in palette.items():
+                self.assertEqual(hex_value, PINDOU_PALETTE[code])
+
+    def test_each_palette_strictly_limits_quantized_output(self):
+        pixels = np.arange(19 * 23 * 3, dtype=np.uint16).reshape(19, 23, 3)
+        source = Image.fromarray((pixels * 17 % 256).astype(np.uint8), "RGB")
+        for palette_name, palette in PINDOU_PALETTES.items():
+            for dither in ("关闭（推荐）", "Floyd-Steinberg"):
+                with self.subTest(palette=palette_name, dither=dither):
+                    _, indices = image_to_bead_grid(
+                        source,
+                        bead_width=23,
+                        max_colors=128,
+                        resize_method="最近邻",
+                        dither=dither,
+                        palette_name=palette_name,
+                    )
+                    output_codes = {
+                        str(PALETTE_CODES[index]) for index in np.unique(indices)
+                    }
+                    self.assertTrue(output_codes.issubset(set(palette)))
+
+    def test_unknown_palette_is_rejected_with_clear_error(self):
+        with self.assertRaisesRegex(ValueError, "未知色板"):
+            get_palette_indices("不存在的色板")
 
     def test_reference_palette_is_complete(self):
         self.assertEqual(len(PINDOU_PALETTE), 221)
